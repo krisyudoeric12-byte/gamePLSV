@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PLSV Battle Arena - Ultimate v3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: #111827;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        /* Grid Layouts */
+        .game-grid { display: grid; height: 100%; width: 100%; }
+        .cols-2 { grid-template-columns: repeat(2, 1fr); }
+        .cols-3 { grid-template-columns: repeat(3, 1fr); }
+        .cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+        @media (max-width: 768px) and (orientation: portrait) {
+            .cols-2 { grid-template-columns: 1fr; grid-template-rows: repeat(2, 1fr); }
+            .cols-3 { grid-template-columns: 1fr; grid-template-rows: repeat(3, 1fr); }
+            .cols-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+        }
+
+        /* Player Zone Styling */
+        .player-zone {
+            position: relative;
+            border: 2px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            padding: 0.5rem;
+            transition: all 0.2s;
+            overflow: hidden;
+        }
+
+        /* MODES */
+        .bonus-mode {
+            background: linear-gradient(to bottom right, rgba(255,215,0,0.15), rgba(255,215,0,0.05));
+            border: 2px solid #ffd700 !important;
+            box-shadow: inset 0 0 20px rgba(255, 215, 0, 0.2);
+        }
+
+        .boss-mode {
+            background: linear-gradient(to bottom right, rgba(220, 38, 38, 0.2), rgba(0,0,0,0.8));
+            border: 2px solid #ef4444 !important;
+            box-shadow: inset 0 0 30px rgba(220, 38, 38, 0.4);
+        }
+
+        /* UI Elements */
+        .hp-bar-bg {
+            background: rgba(0,0,0,0.6);
+            height: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-top: 4px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .hp-bar-fill { height: 100%; transition: width 0.3s ease-out; }
+        
+        .timer-bar { height: 6px; background: #374151; margin-bottom: 8px; border-radius: 3px; overflow: hidden; }
+        .timer-fill { height: 100%; background: #fbbf24; transition: width 1s linear; }
+
+        .btn-option {
+            background: rgba(255,255,255,0.95);
+            border-bottom: 4px solid #9ca3af;
+            transition: all 0.1s;
+            color: #1f2937;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-option:active { transform: translateY(3px); border-bottom: 0; }
+        
+        .control-btn {
+            background: #374151; border: 2px solid #4b5563; border-radius: 8px;
+            padding: 0.5rem; color: white; font-weight: bold;
+        }
+        .control-btn:active { transform: scale(0.95); }
+
+        /* Icon Selection Grid */
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        .icon-option {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: #374151;
+            color: #9ca3af;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 1.2rem;
+        }
+        .icon-option.selected {
+            background: #fbbf24;
+            color: #1f2937;
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+        }
+
+        /* Animations */
+        .shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
+        }
+
+        /* Massive Attack Animation */
+        @keyframes shockwave {
+            0% { transform: scale(1); opacity: 0.8; border: 10px solid white; }
+            100% { transform: scale(2); opacity: 0; border: 0px solid white; }
+        }
+        .shockwave-effect {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 255, 255, 0.2);
+            animation: shockwave 0.5s ease-out;
+            z-index: 40;
+            pointer-events: none;
+        }
+
+        .damage-popup {
+            position: absolute;
+            font-size: 3rem;
+            font-weight: 900;
+            color: #ef4444;
+            text-shadow: 2px 2px 0 #000;
+            pointer-events: none;
+            z-index: 50;
+            animation: floatUp 0.8s ease-out forwards;
+        }
+        .heal-popup { color: #22c55e; }
+
+        @keyframes floatUp {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            20% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -150%) scale(1); opacity: 0; }
+        }
+
+        .overlay-dead {
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: grayscale(1);
+            pointer-events: auto; 
+        }
+        
+        /* Fractions */
+        .fraction { display: inline-block; text-align: center; vertical-align: middle; margin: 0 4px; }
+        .fraction > span { display: block; padding: 0 2px; }
+        .fraction span.top { border-bottom: 2px solid currentColor; }
+        
+        /* Leaderboard Table */
+        .lb-table { width: 100%; text-align: left; border-collapse: collapse; }
+        .lb-table th { color: #fbbf24; padding: 8px; border-bottom: 1px solid #4b5563; }
+        .lb-table td { padding: 8px; border-bottom: 1px solid #374151; }
+        .lb-row-0 { color: #fbbf24; font-weight: bold; } 
+        
+        /* Skip Button */
+        .skip-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            width: 30px; height: 30px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            z-index: 25;
+            transition: background 0.2s;
+        }
+        .skip-btn:hover { background: rgba(255, 0, 0, 0.5); }
+    </style>
+</head>
+<body class="h-screen w-screen text-white select-none overflow-hidden">
+
+    <!-- SETUP SCREEN -->
+    <div id="setup-screen" class="absolute inset-0 z-50 bg-gray-900 flex flex-col items-center justify-center p-4 text-center overflow-y-auto">
+        <h1 class="text-4xl md:text-6xl font-black text-yellow-400 mb-2 tracking-tighter drop-shadow-lg">
+            <i class="fas fa-bolt"></i> PLSV RUMBLE
+        </h1>
+        <p class="text-gray-400 mb-6 font-bold">Ultimate Edition v3</p>
+
+        <!-- Step 1: Config -->
+        <div id="step-config" class="bg-gray-800 p-6 rounded-2xl border-2 border-gray-700 w-full max-w-md shadow-2xl space-y-6">
+            <div>
+                <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Jumlah Pemain</label>
+                <div class="grid grid-cols-3 gap-3">
+                    <button onclick="selectPlayers(2)" class="p-3 rounded-xl border-2 border-gray-600 hover:border-yellow-400 bg-gray-700 transition font-bold player-sel" id="btn-p2">2</button>
+                    <button onclick="selectPlayers(3)" class="p-3 rounded-xl border-2 border-gray-600 hover:border-yellow-400 bg-gray-700 transition font-bold player-sel" id="btn-p3">3</button>
+                    <button onclick="selectPlayers(4)" class="p-3 rounded-xl border-2 border-gray-600 hover:border-yellow-400 bg-gray-700 transition font-bold player-sel" id="btn-p4">4</button>
+                </div>
+            </div>
+
+            <div class="bg-gray-700 p-4 rounded-xl">
+                <label class="block text-xs font-bold text-gray-300 mb-2 uppercase tracking-wider"><i class="fas fa-stopwatch"></i> Waktu Per Soal</label>
+                <div class="flex items-center justify-between">
+                    <button onclick="adjustTimer(-5)" class="control-btn w-12"><i class="fas fa-minus"></i></button>
+                    <div class="text-2xl font-bold text-yellow-400 w-20"><span id="timer-display">30</span>s</div>
+                    <button onclick="adjustTimer(5)" class="control-btn w-12"><i class="fas fa-plus"></i></button>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
+                <span class="font-bold text-sm"><i class="fas fa-music mr-2"></i> Suara & Musik</span>
+                <button id="btn-audio" onclick="toggleAudio()" class="bg-green-500 w-10 h-6 rounded-full relative transition-colors">
+                    <div class="dot translate-x-4 absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform"></div>
+                </button>
+            </div>
+
+            <button onclick="goToProfileSetup()" class="w-full bg-indigo-600 text-white font-black py-4 rounded-xl text-xl shadow-[0_4px_0_rgb(67,56,202)] active:shadow-none active:translate-y-1 transition">
+                LANJUT <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+
+        <!-- Step 2: Profiles -->
+        <div id="step-profiles" class="hidden w-full max-w-4xl">
+            <h2 class="text-2xl font-bold text-white mb-4">Setup Profil Pemain</h2>
+            <div id="profiles-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <!-- Injected via JS -->
+            </div>
+            <div class="flex gap-4 justify-center">
+                <button onclick="backToConfig()" class="px-6 py-3 bg-gray-600 rounded-xl font-bold">Kembali</button>
+                <button onclick="initGame()" class="px-8 py-3 bg-gradient-to-r from-yellow-500 to-orange-600 text-white font-black rounded-xl text-xl shadow-[0_4px_0_rgb(180,83,9)] active:shadow-none active:translate-y-1 transition hover:brightness-110">
+                    MULAI BATTLE!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME ARENA -->
+    <div id="game-arena" class="hidden game-grid bg-gray-900">
+        <!-- Player Zones -->
+    </div>
+
+    <!-- GAME OVER / LEADERBOARD MODAL -->
+    <div id="game-over" class="hidden absolute inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md overflow-y-auto">
+        <div class="w-full max-w-md p-6 text-center animate-bounce-in">
+            <div class="text-6xl mb-2">🏆</div>
+            <h2 class="text-5xl font-black text-white mb-2">GAME OVER</h2>
+            <p id="winner-name" class="text-3xl font-bold text-yellow-400 mb-8">Player 1 Menang!</p>
+            
+            <!-- Leaderboard -->
+            <div class="bg-gray-800 rounded-xl p-4 mb-8 border border-gray-700">
+                <h3 class="text-lg font-bold text-white mb-3 uppercase tracking-wider border-b border-gray-600 pb-2">
+                    <i class="fas fa-crown text-yellow-500"></i> Hall of Fame
+                </h3>
+                <table class="lb-table text-sm">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Nama</th>
+                            <th class="text-right">Menang</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lb-body"></tbody>
+                </table>
+            </div>
+
+            <button onclick="location.reload()" class="w-full px-8 py-4 bg-white text-black font-black rounded-xl text-xl hover:scale-105 transition shadow-lg">
+                MAIN LAGI
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- ICONS (Verified Standard Icons) ---
+        const AVAILABLE_ICONS = [
+            'fa-dragon', 'fa-ghost', 'fa-robot', 'fa-hippo',
+            'fa-otter', 'fa-spider', 'fa-fish', 'fa-horse',
+            'fa-frog', 'fa-cat', 'fa-dog', 'fa-crow',
+            'fa-bug', 'fa-rocket', 'fa-skull', 'fa-bolt'
+        ];
+
+        // --- SOAL CERITA (HOTS) ---
+        const STORY_PROBLEMS = [
+            { q: "Umur Ayah 3x umur Budi. Selisih umur mereka 24 thn. Umur Budi = ...", a: 12, range: 5 }, // 3x - x = 24 -> 2x=24
+            { q: "Keliling persegi = 40cm. Sisi = 2x+2. Nilai x = ...", a: 4, range: 3 }, // 4(2x+2) = 40 -> 2x+2=10 -> 2x=8
+            { q: "3 bilangan genap berurutan jumlahnya 30. Bilangan terbesar = ...", a: 12, range: 4 }, // (n-2)+n+(n+2)=30 -> 3n=30 -> n=10 -> max=12
+            { q: "Panjang persegi panjang (2x-3)cm, lebar (x+1)cm. Keliling 32cm. Nilai x = ...", a: 6, range: 3 }, // 2(2x-3 + x+1) = 32 -> 2(3x-2)=32 -> 3x-2=16 -> 3x=18
+            { q: "Harga 2 buku dan 1 pensil Rp10.000. Pensil = Rp2.000. Harga 1 buku = ...", a: 4000, range: 1000 }, // 2x + 2000 = 10000
+            { q: "Saya berpikir angka x. Jika dikali 3 lalu dikurang 5 hasilnya 10. x = ...", a: 5, range: 2 } // 3x - 5 = 10
+        ];
+
+        // --- AUDIO SYSTEM (Improved) ---
+        const AudioSys = {
+            ctx: null,
+            isEnabled: true, // Default on
+            bgmInterval: null,
+            
+            init: function() {
+                window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                if(!this.ctx) this.ctx = new AudioContext();
+            },
+            
+            // Ensure running context
+            check: function() {
+                if(!this.isEnabled) return false;
+                if(!this.ctx) this.init();
+                if(this.ctx.state === 'suspended') this.ctx.resume();
+                return true;
+            },
+
+            playTone: function(freq, type, duration, vol=0.1) {
+                if (!this.check()) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            },
+
+            sfxCorrect: function() {
+                this.playTone(600, 'sine', 0.1, 0.1);
+                setTimeout(() => this.playTone(1200, 'sine', 0.2, 0.1), 100);
+            },
+            sfxWrong: function() {
+                this.playTone(150, 'sawtooth', 0.3, 0.2);
+                setTimeout(() => this.playTone(100, 'sawtooth', 0.3, 0.2), 150);
+            },
+            sfxAttack: function() {
+                if (!this.check()) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.frequency.setValueAtTime(500, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            },
+            sfxMassive: function() {
+                 if (!this.check()) return;
+                // Explosion sound
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(10, this.ctx.currentTime + 0.8);
+                gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.8);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.8);
+            },
+            sfxHeal: function() {
+                this.playTone(400, 'sine', 0.1, 0.1);
+                setTimeout(() => this.playTone(600, 'sine', 0.1, 0.1), 100);
+                setTimeout(() => this.playTone(800, 'sine', 0.3, 0.1), 200);
+            },
+            sfxWin: function() {
+                [300, 400, 500, 600, 800].forEach((f, i) => {
+                    setTimeout(() => this.playTone(f, 'square', 0.2, 0.1), i * 100);
+                });
+            },
+
+            startBGM: function() {
+                if(!this.check()) return;
+                let noteIdx = 0;
+                const notes = [110, 130, 146, 130, 110, 98, 110, 110]; 
+                if(this.bgmInterval) clearInterval(this.bgmInterval);
+                
+                this.bgmInterval = setInterval(() => {
+                    if(!this.isEnabled || !gameActive) { clearInterval(this.bgmInterval); return; }
+                    this.playTone(notes[noteIdx % notes.length], 'triangle', 0.3, 0.03);
+                    if(noteIdx % 2 === 0) this.playTone(1000 + Math.random()*500, 'square', 0.05, 0.01);
+                    noteIdx++;
+                }, 500);
+            }
+        };
+
+        // --- GAME CONFIG ---
+        let playerCount = 2;
+        let gameTimeSetting = 30; 
+        let players = [];
+        let gameActive = false;
+
+        const colorSchemes = [
+            { color: 'bg-red-600', light: 'bg-red-900', text: 'text-red-400', border: 'border-red-500' },
+            { color: 'bg-blue-600', light: 'bg-blue-900', text: 'text-blue-400', border: 'border-blue-500' },
+            { color: 'bg-green-600', light: 'bg-green-900', text: 'text-green-400', border: 'border-green-500' },
+            { color: 'bg-purple-600', light: 'bg-purple-900', text: 'text-purple-400', border: 'border-purple-500' }
+        ];
+
+        let setupData = [];
+
+        // --- SETUP FLOW ---
+        function selectPlayers(n) {
+            playerCount = n;
+            document.querySelectorAll('.player-sel').forEach(b => b.classList.remove('bg-gray-500', 'border-yellow-400'));
+            document.getElementById(`btn-p${n}`).classList.add('bg-gray-500', 'border-yellow-400');
+        }
+
+        function adjustTimer(val) {
+            gameTimeSetting += val;
+            if(gameTimeSetting < 5) gameTimeSetting = 5;
+            if(gameTimeSetting > 60) gameTimeSetting = 60;
+            document.getElementById('timer-display').innerText = gameTimeSetting;
+        }
+
+        function toggleAudio() {
+            AudioSys.isEnabled = !AudioSys.isEnabled;
+            // Force init context on toggle
+            if(AudioSys.isEnabled) AudioSys.check();
+
+            const btn = document.getElementById('btn-audio');
+            const dot = btn.querySelector('.dot');
+            if(AudioSys.isEnabled) {
+                btn.classList.remove('bg-red-500');
+                btn.classList.add('bg-green-500');
+                dot.classList.add('translate-x-4');
+                AudioSys.playTone(440, 'sine', 0.1);
+            } else {
+                btn.classList.add('bg-red-500');
+                btn.classList.remove('bg-green-500');
+                dot.classList.remove('translate-x-4');
+                if(AudioSys.bgmInterval) clearInterval(AudioSys.bgmInterval);
+            }
+        }
+
+        function goToProfileSetup() {
+            // Trigger audio unlock on first meaningful click
+            AudioSys.check(); 
+
+            setupData = [];
+            for(let i=0; i<playerCount; i++) {
+                setupData.push({
+                    name: `Player ${i+1}`,
+                    icon: AVAILABLE_ICONS[i % AVAILABLE_ICONS.length]
+                });
+            }
+            renderProfileSetup();
+            document.getElementById('step-config').classList.add('hidden');
+            document.getElementById('step-profiles').classList.remove('hidden');
+        }
+
+        function backToConfig() {
+            document.getElementById('step-profiles').classList.add('hidden');
+            document.getElementById('step-config').classList.remove('hidden');
+        }
+
+        function renderProfileSetup() {
+            const container = document.getElementById('profiles-container');
+            container.innerHTML = '';
+            
+            setupData.forEach((p, idx) => {
+                const card = document.createElement('div');
+                card.className = "bg-gray-800 p-4 rounded-xl border border-gray-600";
+                
+                let html = `
+                    <div class="mb-3">
+                        <label class="text-xs text-gray-400 font-bold uppercase">Nama P${idx+1}</label>
+                        <input type="text" value="${p.name}" onchange="updateName(${idx}, this.value)" 
+                        class="w-full bg-gray-700 text-white px-3 py-2 rounded border border-gray-600 focus:border-yellow-400 focus:outline-none" maxlength="10">
+                    </div>
+                    <div class="mb-1 text-xs text-gray-400 font-bold uppercase">Pilih Icon</div>
+                    <div class="icon-grid">
+                `;
+                
+                AVAILABLE_ICONS.forEach(icon => {
+                    const isSelected = p.icon === icon ? 'selected' : '';
+                    html += `
+                        <div onclick="updateIcon(${idx}, '${icon}')" class="icon-option ${isSelected}">
+                            <i class="fas ${icon}"></i>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+                card.innerHTML = html;
+                container.appendChild(card);
+            });
+        }
+
+        function updateName(idx, val) { setupData[idx].name = val || `Player ${idx+1}`; }
+        function updateIcon(idx, icon) {
+            setupData[idx].icon = icon;
+            renderProfileSetup();
+        }
+
+        // --- GAME INIT ---
+        function initGame() {
+            AudioSys.check();
+
+            document.getElementById('setup-screen').classList.add('hidden');
+            const arena = document.getElementById('game-arena');
+            arena.classList.remove('hidden');
+            arena.className = `game-grid cols-${playerCount} bg-gray-900`;
+            
+            players = [];
+            arena.innerHTML = '';
+            gameActive = true;
+
+            AudioSys.startBGM();
+
+            for(let i=0; i<playerCount; i++) {
+                const conf = colorSchemes[i];
+                players.push({
+                    id: i,
+                    name: setupData[i].name,
+                    icon: setupData[i].icon,
+                    ...conf,
+                    hp: 100,
+                    isDead: false,
+                    state: 'THINKING', 
+                    currentQ: null,
+                    timeLeft: gameTimeSetting,
+                    timerInterval: null
+                });
+                
+                const zone = document.createElement('div');
+                zone.id = `p-zone-${i}`;
+                zone.className = `player-zone ${conf.light}`;
+                zone.innerHTML = buildPlayerHTML(i);
+                arena.appendChild(zone);
+                
+                generateQuestionFor(i);
+            }
+        }
+
+        function buildPlayerHTML(pid) {
+            const p = players[pid];
+            return `
+                <div class="flex flex-col gap-1 mb-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full ${p.color} text-white flex items-center justify-center text-sm shadow-md shrink-0">
+                            <i class="fas ${p.icon}"></i>
+                        </div>
+                        <div class="w-full">
+                            <div class="flex justify-between text-[10px] font-bold text-gray-300">
+                                <span class="truncate max-w-[80px]">${p.name}</span>
+                                <span id="hp-txt-${pid}">100</span>
+                            </div>
+                            <div class="hp-bar-bg">
+                                <div id="hp-bar-${pid}" class="hp-bar-fill ${p.color}" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timer-bar w-full">
+                    <div id="timer-fill-${pid}" class="timer-fill w-full"></div>
+                </div>
+
+                <div id="p-content-${pid}" class="flex-1 flex flex-col relative overflow-hidden">
+                    <div id="q-container-${pid}" class="bg-black/30 rounded-lg p-2 mb-2 text-center border border-white/10 grow flex flex-col justify-center relative transition-all">
+                        <!-- Skip Button (Hidden by default) -->
+                        <div id="skip-btn-${pid}" class="hidden skip-btn" onclick="skipQuestion(${pid})">
+                            <i class="fas fa-trash text-white text-xs"></i>
+                        </div>
+                        
+                        <p id="q-label-${pid}" class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Cari Nilai X</p>
+                        <div id="eq-${pid}" class="text-md md:text-lg font-mono font-bold text-white my-1 flex justify-center items-center flex-wrap">...</div>
+                    </div>
+
+                    <div id="opts-${pid}" class="flex flex-col gap-2 h-auto justify-end"></div>
+
+                    <div id="atk-overlay-${pid}" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-gray-800/95 z-10">
+                        <h3 class="text-sm font-bold text-white mb-2 uppercase">Serang!</h3>
+                        <div id="atk-targets-${pid}" class="flex flex-col gap-2 w-full px-4"></div>
+                    </div>
+
+                    <div id="frozen-overlay-${pid}" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-red-900/90 z-20 text-center p-2">
+                        <i id="feedback-icon-${pid}" class="fas fa-times-circle text-3xl text-white mb-1"></i>
+                        <p id="feedback-text-${pid}" class="font-bold text-white text-sm">SALAH!</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- LOGIC ---
+        function startTimer(pid) {
+            if(players[pid].timerInterval) clearInterval(players[pid].timerInterval);
+            players[pid].timeLeft = gameTimeSetting;
+            updateTimerUI(pid);
+
+            players[pid].timerInterval = setInterval(() => {
+                if(!gameActive || players[pid].isDead) {
+                    clearInterval(players[pid].timerInterval);
+                    return;
+                }
+                if(players[pid].state !== 'THINKING') return;
+
+                players[pid].timeLeft--;
+                updateTimerUI(pid);
+                
+                if(players[pid].timeLeft <= 0) {
+                    handleTimeout(pid);
+                }
+            }, 1000);
+        }
+
+        function updateTimerUI(pid) {
+            const pct = (players[pid].timeLeft / gameTimeSetting) * 100;
+            const bar = document.getElementById(`timer-fill-${pid}`);
+            if(bar) {
+                bar.style.width = `${pct}%`;
+                bar.style.backgroundColor = pct < 30 ? '#ef4444' : '#fbbf24';
+            }
+        }
+
+        function handleTimeout(pid) {
+            AudioSys.sfxWrong();
+            const p = players[pid];
+            
+            // Instant Damage
+            const damage = 15;
+            p.hp = Math.max(0, p.hp - damage);
+            updateHP(pid);
+            
+            if(p.hp > 0) {
+                showFeedback(pid, false, "WAKTU HABIS!");
+                setTimeout(() => {
+                    if(!p.isDead && gameActive) {
+                        resetPlayerState(pid);
+                        generateQuestionFor(pid);
+                    }
+                }, 1500);
+            }
+        }
+
+        function showFeedback(pid, isCorrect, msg) {
+            const overlay = document.getElementById(`frozen-overlay-${pid}`);
+            if(!overlay) return;
+            const icon = document.getElementById(`feedback-icon-${pid}`);
+            const txt = document.getElementById(`feedback-text-${pid}`);
+            
+            overlay.classList.remove('hidden');
+            if(isCorrect) {
+                overlay.classList.remove('bg-red-900/90');
+                overlay.classList.add('bg-green-600/90');
+                icon.className = 'fas fa-check-circle text-3xl text-white mb-1';
+                txt.textContent = msg || "BENAR!";
+            } else {
+                overlay.classList.remove('bg-green-600/90');
+                overlay.classList.add('bg-red-900/90');
+                icon.className = 'fas fa-times-circle text-3xl text-white mb-1';
+                txt.textContent = msg || "SALAH!";
+            }
+        }
+
+        function resetPlayerState(pid) {
+            const p = players[pid];
+            p.state = 'THINKING';
+            document.getElementById(`frozen-overlay-${pid}`).classList.add('hidden');
+            document.getElementById(`q-container-${pid}`).classList.remove('bonus-mode');
+            document.getElementById(`q-container-${pid}`).classList.remove('boss-mode');
+            document.getElementById(`skip-btn-${pid}`).classList.add('hidden');
+        }
+
+        function skipQuestion(pid) {
+            // Just simple reset, maybe a small sfx
+            resetPlayerState(pid);
+            generateQuestionFor(pid);
+        }
+
+        // --- GENERATOR ---
+        function generateQuestionFor(pid) {
+            if(players[pid].isDead || !gameActive) return;
+            startTimer(pid);
+
+            const rand = Math.random();
+            const isBonus = rand < 0.15; // 15% chance heal
+            const isBoss = !isBonus && rand > 0.85; // 15% chance boss (AOE)
+            
+            let type = Math.floor(Math.random() * 3); 
+
+            let qHtml = '';
+            let x = Math.floor(Math.random() * 13) - 6; 
+            if(x===0) x=2;
+
+            // UI Update
+            const qContainer = document.getElementById(`q-container-${pid}`);
+            const qLabel = document.getElementById(`q-label-${pid}`);
+            const skipBtn = document.getElementById(`skip-btn-${pid}`);
+            
+            qContainer.className = "bg-black/30 rounded-lg p-2 mb-2 text-center border border-white/10 grow flex flex-col justify-center relative transition-all";
+            skipBtn.classList.add('hidden');
+
+            if(isBonus) {
+                qContainer.classList.add('bonus-mode');
+                qLabel.innerHTML = '<i class="fas fa-heart text-green-400"></i> BONUS (HEAL)';
+                qLabel.className = 'text-[10px] font-bold uppercase tracking-widest text-green-300';
+                type = 3; // Use bracket format for bonus
+            } else if(isBoss) {
+                qContainer.classList.add('boss-mode');
+                qLabel.innerHTML = '<i class="fas fa-skull text-red-500"></i> BOSS SOAL (AOE)';
+                qLabel.className = 'text-[10px] font-bold uppercase tracking-widest text-red-300';
+                skipBtn.classList.remove('hidden');
+            } else {
+                qLabel.textContent = 'CARI NILAI X';
+                qLabel.className = 'text-[10px] font-bold uppercase tracking-widest text-gray-400';
+            }
+
+            let correctAnswer = x;
+            let optionsRange = 5;
+
+            // Logic Generation
+            if(isBoss) {
+                // Pick random story problem
+                const prob = STORY_PROBLEMS[Math.floor(Math.random() * STORY_PROBLEMS.length)];
+                qHtml = `<div class="text-xs md:text-sm text-left leading-tight">${prob.q}</div>`;
+                correctAnswer = prob.a;
+                optionsRange = prob.range;
+            } else {
+                // Normal Equations
+                if(type === 0) { // ax + b = c
+                    let a = Math.floor(Math.random() * 5) + 2;
+                    let b = Math.floor(Math.random() * 20) - 10;
+                    let c = a*x + b;
+                    qHtml = `${a}x ${b>=0?'+':'-'} ${Math.abs(b)} = ${c}`;
+                } else if(type === 1) { // ax + b = cx + d
+                    let a = Math.floor(Math.random() * 4) + 3; 
+                    let c_coef = Math.floor(Math.random() * 2) + 1; 
+                    let b = Math.floor(Math.random() * 10) - 5;
+                    let d = (a-c_coef)*x + b;
+                    qHtml = `${a}x ${b>=0?'+':'-'} ${Math.abs(b)} = ${c_coef}x ${d>=0?'+':'-'} ${Math.abs(d)}`;
+                } else if(type === 2) { // Fraction
+                    let a = Math.floor(Math.random() * 3) + 2;
+                    x = x * a;
+                    let b = Math.floor(Math.random() * 10) - 5;
+                    let c = (x/a) + b;
+                    qHtml = `<div class="fraction"><span class="top">x</span><span class="bottom">${a}</span></div> ${b>=0?'+':'-'} ${Math.abs(b)} = ${c}`;
+                    correctAnswer = x;
+                } else { // Bracket
+                    let a = Math.floor(Math.random() * 3) + 2;
+                    let b = Math.floor(Math.random() * 6) - 3;
+                    let val = x + b;
+                    let c = a * val;
+                    qHtml = `${a}(x ${b>=0?'+':'-'} ${Math.abs(b)}) = ${c}`;
+                }
+            }
+
+            players[pid].currentQ = { ans: correctAnswer, isBonus: isBonus, isBoss: isBoss };
+            document.getElementById(`eq-${pid}`).innerHTML = qHtml;
+            
+            const optsBox = document.getElementById(`opts-${pid}`);
+            optsBox.innerHTML = '';
+            let options = new Set([correctAnswer]);
+            
+            // Generate intelligent options
+            while(options.size < 4) {
+                let offset = Math.floor(Math.random() * (optionsRange * 2 + 1)) - optionsRange;
+                let fake = correctAnswer + offset;
+                if(fake !== correctAnswer) options.add(fake);
+            }
+            
+            Array.from(options).sort((a,b) => a - b).forEach(val => {
+                const btn = document.createElement('button');
+                btn.className = `btn-option w-full py-3 rounded text-lg shadow-sm`;
+                btn.textContent = val; // Format as needed (currency for money problems?)
+                btn.onpointerdown = (e) => { e.preventDefault(); handleAnswer(pid, val); };
+                optsBox.appendChild(btn);
+            });
+        }
+
+        function handleAnswer(pid, val) {
+            const p = players[pid];
+            if(p.state !== 'THINKING' || p.isDead || !gameActive || p.hp <= 0) return;
+            
+            clearInterval(p.timerInterval);
+
+            if(val === p.currentQ.ans) {
+                if(p.currentQ.isBonus) {
+                    // HEAL
+                    AudioSys.sfxHeal();
+                    const heal = 20;
+                    p.hp = Math.min(100, p.hp + heal);
+                    updateHP(pid);
+                    showFeedback(pid, true, `HEAL +${heal}!`);
+                    
+                    setTimeout(() => {
+                        resetPlayerState(pid);
+                        generateQuestionFor(pid);
+                    }, 1000);
+
+                } else if(p.currentQ.isBoss) {
+                    // MASSIVE AOE ATTACK
+                    performMassiveAttack(pid);
+
+                } else {
+                    // NORMAL ATTACK
+                    AudioSys.sfxCorrect();
+                    enterAttackMode(pid);
+                }
+            } else {
+                // WRONG
+                AudioSys.sfxWrong();
+                const damage = 15;
+                p.hp = Math.max(0, p.hp - damage);
+                updateHP(pid);
+                
+                if(p.hp > 0) {
+                    showFeedback(pid, false, "SALAH!");
+                    p.state = 'FROZEN';
+                    setTimeout(() => {
+                        if(!p.isDead && gameActive) {
+                            resetPlayerState(pid);
+                            generateQuestionFor(pid);
+                        }
+                    }, 1500);
+                }
+            }
+        }
+
+        function enterAttackMode(attackerId) {
+            const p = players[attackerId];
+            p.state = 'ATTACKING';
+            
+            const overlay = document.getElementById(`atk-overlay-${attackerId}`);
+            const targetBox = document.getElementById(`atk-targets-${attackerId}`);
+            targetBox.innerHTML = '';
+            overlay.classList.remove('hidden');
+
+            players.forEach((enemy, idx) => {
+                if(idx !== attackerId && !enemy.isDead) {
+                    const btn = document.createElement('button');
+                    btn.className = `p-2 rounded border-2 ${enemy.border} bg-gray-700 flex items-center justify-between hover:bg-gray-600 w-full`;
+                    btn.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <i class="fas ${enemy.icon} ${enemy.text} text-xl"></i>
+                            <span class="font-bold text-white text-sm truncate max-w-[80px]">${enemy.name}</span>
+                        </div>
+                        <span class="text-xs font-bold text-red-400">ATK</span>
+                    `;
+                    btn.onpointerdown = (e) => { e.preventDefault(); performAttack(attackerId, idx); };
+                    targetBox.appendChild(btn);
+                }
+            });
+        }
+
+        function performAttack(attackerId, victimId) {
+            if(!gameActive) return;
+            AudioSys.sfxAttack();
+            
+            const attacker = players[attackerId];
+            const victim = players[victimId];
+            const damage = 20;
+            
+            victim.hp = Math.max(0, victim.hp - damage);
+            updateHP(victimId);
+            
+            document.getElementById(`atk-overlay-${attackerId}`).classList.add('hidden');
+            attacker.state = 'THINKING';
+            
+            const vZone = document.getElementById(`p-zone-${victimId}`);
+            if(vZone) {
+                vZone.classList.add('shake');
+                const popup = document.createElement('div');
+                popup.className = 'damage-popup';
+                popup.innerText = `-${damage}`;
+                popup.style.left = '50%';
+                popup.style.top = '30%';
+                vZone.appendChild(popup);
+                
+                setTimeout(() => popup.remove(), 800);
+                setTimeout(() => vZone.classList.remove('shake'), 400);
+            }
+
+            generateQuestionFor(attackerId);
+        }
+
+        function performMassiveAttack(attackerId) {
+            if(!gameActive) return;
+            AudioSys.sfxMassive();
+
+            const damage = 30; // High damage
+            
+            // Loop through all enemies
+            players.forEach((enemy, idx) => {
+                if(idx !== attackerId && !enemy.isDead) {
+                    enemy.hp = Math.max(0, enemy.hp - damage);
+                    updateHP(idx);
+
+                    const vZone = document.getElementById(`p-zone-${idx}`);
+                    if(vZone) {
+                        vZone.classList.add('shake');
+                        // Add shockwave visual
+                        const wave = document.createElement('div');
+                        wave.className = 'shockwave-effect';
+                        vZone.appendChild(wave);
+
+                        const popup = document.createElement('div');
+                        popup.className = 'damage-popup';
+                        popup.innerText = `-${damage}`;
+                        popup.style.left = '50%';
+                        popup.style.top = '30%';
+                        vZone.appendChild(popup);
+                        
+                        setTimeout(() => {
+                            popup.remove();
+                            wave.remove();
+                            vZone.classList.remove('shake');
+                        }, 800);
+                    }
+                }
+            });
+
+            showFeedback(attackerId, true, "AOE ATTACK!!");
+            setTimeout(() => {
+                resetPlayerState(attackerId);
+                generateQuestionFor(attackerId);
+            }, 1500);
+        }
+
+        function updateHP(pid) {
+            const p = players[pid];
+            document.getElementById(`hp-bar-${pid}`).style.width = `${p.hp}%`;
+            document.getElementById(`hp-txt-${pid}`).innerText = p.hp;
+            
+            if(p.hp <= 0 && !p.isDead) {
+                handleDeath(pid);
+            }
+        }
+
+        function handleDeath(pid) {
+            const p = players[pid];
+            p.isDead = true;
+            clearInterval(p.timerInterval);
+            
+            const zone = document.getElementById(`p-zone-${pid}`);
+            zone.classList.add('opacity-50', 'grayscale');
+            
+            document.getElementById(`atk-overlay-${pid}`).classList.add('hidden');
+            document.getElementById(`frozen-overlay-${pid}`).classList.add('hidden');
+
+            const overlay = document.createElement('div');
+            overlay.className = 'absolute inset-0 overlay-dead flex items-center justify-center z-40';
+            overlay.innerHTML = `<span class="text-4xl font-black text-red-500 rotate-[-15deg] border-4 border-red-500 p-2">KO!</span>`;
+            zone.appendChild(overlay);
+
+            checkWinCondition();
+        }
+
+        function checkWinCondition() {
+            const survivors = players.filter(p => !p.isDead);
+            if(survivors.length <= 1) {
+                endGame(survivors[0]);
+            }
+        }
+
+        function endGame(winner) {
+            gameActive = false;
+            clearInterval(AudioSys.bgmInterval);
+            AudioSys.sfxWin();
+            players.forEach(p => clearInterval(p.timerInterval));
+            
+            const modal = document.getElementById('game-over');
+            const winnerTxt = document.getElementById('winner-name');
+            
+            modal.classList.remove('hidden');
+            if(winner) {
+                winnerTxt.innerText = `${winner.name} Menang!`;
+                winnerTxt.className = `text-3xl font-bold mb-4 ${winner.text}`;
+                saveToLeaderboard(winner.name);
+            } else {
+                winnerTxt.innerText = "SERI!";
+                winnerTxt.className = "text-3xl font-bold mb-4 text-white";
+            }
+            
+            renderLeaderboard();
+        }
+
+        function saveToLeaderboard(name) {
+            let lb = JSON.parse(localStorage.getItem('plsv_leaderboard_v1') || '[]');
+            const existing = lb.find(p => p.name === name);
+            if(existing) existing.wins += 1;
+            else lb.push({ name: name, wins: 1 });
+            lb.sort((a, b) => b.wins - a.wins);
+            lb = lb.slice(0, 5);
+            localStorage.setItem('plsv_leaderboard_v1', JSON.stringify(lb));
+        }
+
+        function renderLeaderboard() {
+            const lb = JSON.parse(localStorage.getItem('plsv_leaderboard_v1') || '[]');
+            const tbody = document.getElementById('lb-body');
+            tbody.innerHTML = '';
+            if(lb.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-gray-500 italic">Belum ada data</td></tr>';
+                return;
+            }
+            lb.forEach((entry, idx) => {
+                tbody.innerHTML += `
+                    <tr class="lb-row-${idx}">
+                        <td>${idx + 1}</td>
+                        <td>${entry.name}</td>
+                        <td class="text-right">${entry.wins}</td>
+                    </tr>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>
